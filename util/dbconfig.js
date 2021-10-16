@@ -5,6 +5,7 @@ const sequelize = new Sequelize('gso','root','123456',{
     host:'localhost',
     define:{
         timestamps:false
+        
     }
 });
 

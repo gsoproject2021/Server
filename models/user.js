@@ -10,7 +10,7 @@ const User = sequelize.define('user',{
         autoIncrement: true
         
       },
-      UserName: {
+      Username: {
         type: Sequelize.STRING(20),
         allowNull: false
       },
@@ -22,11 +22,11 @@ const User = sequelize.define('user',{
         type: Sequelize.STRING(50),
         allowNull: false
       },
-      BirthDay: {
+      Birthday: {
         type: Sequelize.STRING(10),
         allowNull: true
       },
-      PhoneNumber: {
+      Phone: {
         type: Sequelize.STRING(15),
         allowNull: true
       },
@@ -47,22 +47,17 @@ const User = sequelize.define('user',{
         allowNull: false,
         defaultValue:false
       },
-      Administrator: {
+      isAdmin: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue:false
       },
-      Blocked: {
+      IsBlocked: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue:false
-      },
-      Active: {
-        type: Sequelize.BOOLEAN,
-        allowNull: false,
-        defaultValue:true
       }
-
+      
 });
 
 module.exports = User;

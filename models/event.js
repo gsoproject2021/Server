@@ -5,37 +5,42 @@ const sequelize = require('../util/dbconfig');
 const Event = sequelize.define('event',{
     EventID: {
         autoIncrement: true,
-        type: DataTypes.INTEGER,
+        type: Sequelize.INTEGER,
         allowNull: false,
         primaryKey: true
       },
-      UserID: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-          model: 'users',
-          key: 'UserID'
-        }
-      },
-      DateOfEvent: {
-        type: DataTypes.STRING(10),
-        allowNull: false
-      },
-      Hours: {
-        type: DataTypes.STRING(10),
-        allowNull: false
-      },
       Subject: {
-        type: DataTypes.STRING(30),
+        type: Sequelize.STRING(45),
         allowNull: false
       },
-      Description: {
-        type: DataTypes.STRING(120),
+      EventHour: {
+        type: Sequelize.STRING(10),
         allowNull: false
+      },
+      EventDate: {
+        type: Sequelize.STRING(10),
+        allowNull: false
+      },
+      
+      Description: {
+        type: Sequelize.STRING(200),
+        allowNull: true
       },
       CityID: {
-        type: DataTypes.INTEGER,
+        type: Sequelize.INTEGER,
         allowNull: false,
+        references: {
+          model: 'cities',
+          key: 'CityID'
+        }
+    },
+    RoomID: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'rooms',
+        key: 'RoomID'
+      }
     }
         
 });

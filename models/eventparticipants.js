@@ -2,7 +2,12 @@ const Sequelize = require('sequelize');
 
 const sequelize = require('../util/dbconfig');
 
-const Eventjoin = sequelize.define('eventjoin',{
+const Eventparticipant = sequelize.define('eventparticipant',{
+    ParticipantID: {
+      type:Sequelize.INTEGER,
+      allowNull: false,
+      autoIncrement: true,
+    },
     EventID: {
         type: Sequelize.INTEGER,
         allowNull: false,
@@ -13,14 +18,7 @@ const Eventjoin = sequelize.define('eventjoin',{
         allowNull: false,
       
       },
-      RequestDate: {
-        type: Sequelize.STRING(10),
-        allowNull: false
-      },
-      RequestHour: {
-        type: Sequelize.STRING(10),
-        allowNull: false
-      }
+
 });
 
 module.exports = Eventjoin;

@@ -9,26 +9,27 @@ const Room = sequelize.define('room',{
         allowNull: false,
         primaryKey: true
       },
-      NameRoom: {
-        type: Sequelize.STRING(15),
+      RoomName: {
+        type: Sequelize.STRING(30),
         allowNull: false
       },
       CreateDate: {
         type: Sequelize.STRING(10),
-        allowNull: false
+        allowNull: true
       },
-      CreateHoure: {
+      CreateHour: {
         type: Sequelize.STRING(10),
-        allowNull: false
+        allowNull: true
       },
-      OwnerRoomID: {
+      CreatorUserID: {
         type: Sequelize.INTEGER,
         allowNull: false,
-      },
-      Active: {
-        type: Sequelize.INTEGER,
-        allowNull: false
+        references: {
+          model: 'users',
+          key: 'UserID'
+        }
       }
+      
 });
 
 module.exports = Room;

@@ -3,31 +3,31 @@ const Sequelize = require('sequelize');
 const sequelize = require('../util/dbconfig');
 
 const Log = sequelize.define('log',{
-    LogsID: {
+      LogID: {
         autoIncrement: true,
-        type: DataTypes.INTEGER,
+        type: Sequelize.INTEGER,
         allowNull: false,
         primaryKey: true
       },
-      createdate: {
-        type: DataTypes.STRING(10),
+      CreateDate: {
+        type: Sequelize.STRING(10),
         allowNull: false
       },
-      createhour: {
-        type: DataTypes.STRING(10),
+      CreateHour: {
+        type: Sequelize.STRING(10),
         allowNull: false
       },
-      groupname: {
-        type: DataTypes.STRING(50),
+      Path: {
+        type: Sequelize.STRING(255),
         allowNull: false
-      },
-      UserID: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
       },
       RoomID: {
-        type: DataTypes.INTEGER,
+        type: Sequelize.INTEGER,
         allowNull: false,
+        references: {
+          model: 'rooms',
+          key: 'RoomID'
+        }
       }
 });
 

@@ -5,16 +5,16 @@ const sequelize = require('../util/dbconfig');
 const City = sequelize.define('city',{
     CityID: {
         autoIncrement: true,
-        type: DataTypes.INTEGER,
+        type: Sequelize.INTEGER,
         allowNull: false,
         primaryKey: true
       },
       CityName: {
-        type: DataTypes.STRING(15),
+        type: Sequelize.STRING(15),
         allowNull: false
       },
-      OrigionName: {
-        type: DataTypes.STRING(15),
+      OriginName: {
+        type: Sequelize.STRING(15),
         allowNull: false
       }
 });

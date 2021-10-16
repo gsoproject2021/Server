@@ -2,14 +2,14 @@ const Sequelize = require('sequelize');
 
 const sequelize = require('../util/dbconfig');
 
-const Roomuser = sequelize.define('roomuser',{
-      RoomUserID:{
-        type:Sequelize.INTEGER,
-        allowNull:false,
-        primaryKey:true,
-        autoIncrement:true,
-      },
-      UserID: {
+const Roomrequest = sequelize.define('roomrequest',{
+    RoomRequestID: {
+      type:Sequelize.INTEGER,
+      allowNull: false,
+      autoIncrement: true,
+      primaryKey: true
+    },
+    UserID: {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
@@ -17,6 +17,7 @@ const Roomuser = sequelize.define('roomuser',{
           key: 'UserID'
         }
       },
+      
       RoomID: {
         type: Sequelize.INTEGER,
         allowNull: false,
@@ -24,7 +25,7 @@ const Roomuser = sequelize.define('roomuser',{
           model: 'rooms',
           key: 'RoomID'
         }
-      }
+      },
 });
 
-module.exports = Roomuser;
+module.exports = Roomrequest;
