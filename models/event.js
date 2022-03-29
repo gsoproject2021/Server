@@ -26,14 +26,14 @@ const Event = sequelize.define('event',{
         type: Sequelize.STRING(200),
         allowNull: true
       },
-      CityID: {
-        type: Sequelize.INTEGER,
-        allowNull: false,
-        references: {
-          model: 'cities',
-          key: 'CityID'
-        }
-    },
+    //   CityID: {
+    //     type: Sequelize.INTEGER,
+    //     allowNull: false,
+    //     references: {
+    //       model: 'cities',
+    //       key: 'CityID'
+    //     }
+    // },
     RoomID: {
       type: Sequelize.INTEGER,
       allowNull: false,

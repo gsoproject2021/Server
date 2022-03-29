@@ -24,6 +24,11 @@ const Roomuser = sequelize.define('roomuser',{
           model: 'rooms',
           key: 'RoomID'
         }
+      },
+      IsAdmin:{
+        type: Sequelize.ENUM('true','false'),
+        allowNull:false,
+        defaultValue:false
       }
 });
 

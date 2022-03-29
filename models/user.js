@@ -8,14 +8,9 @@ const User = sequelize.define('user',{
         allowNull: false,
         primaryKey: true,
         autoIncrement: true
-        
-      },
-      Username: {
-        type: Sequelize.STRING(20),
-        allowNull: false
       },
       Password: {
-        type: Sequelize.STRING(30),
+        type: Sequelize.STRING(255),
         allowNull: false
       },
       Email: {
@@ -24,10 +19,6 @@ const User = sequelize.define('user',{
       },
       Birthday: {
         type: Sequelize.STRING(10),
-        allowNull: true
-      },
-      Phone: {
-        type: Sequelize.STRING(15),
         allowNull: true
       },
       FirstName: {
@@ -47,7 +38,7 @@ const User = sequelize.define('user',{
         allowNull: false,
         defaultValue:false
       },
-      isAdmin: {
+      IsAdmin: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue:false
@@ -59,5 +50,7 @@ const User = sequelize.define('user',{
       }
       
 });
+
+
 
 module.exports = User;

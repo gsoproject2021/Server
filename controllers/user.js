@@ -1,87 +1,194 @@
+const User = require("../models/user");
+const bcrypt = require("bcrypt");
+const jwt = require('jsonwebtoken');
 
-const User = require('../models/user');
-const Eventjoin = require('../models/eventjoin');
-const Requestroom = require('../models/requestroom');
-const Roomuser = require('../models/roomuser');
-const Roommanager = require('../models/roommanager');
+exports.signup = (req,res)=>{
 
+    bcrypt.hash(req.body.password,10)
+    .then(result => {
+       return User.create({
+            Email:req.body.email,
+            FirstName:req.body.firstname,
+            LastName:req.body.lastname,
+            Password:result,
+            Birthday:req.body.birthday,
+            Gender:req.body.gender,
+            IsAdvertiser:req.body.isAdvertiser,
+            IsAdmin:req.body.isAdmin
+        });
 
+    })
+    .then(result =>{
+        let token;
+        try{
+            token = jwt.sign({userDetails: result},"P@$$w0rd",{expiresIn: '24h'});
+        } catch (err){
+            res.json({message:"something went wrong"});
+        }
 
-exports.registerUser = (req,res)=>{
-
-    User.create({
-        UserName:req.body.username,
-    
-        Email:req.body.email,
-        FirstName:req.body.firstname,
-        LastName:req.body.lastname,
-        Password:req.body.password,
-        BirthDay:req.body.birthday,
-        PhoneNumber:req.body.phone,
-        Gender:req.body.gender,
-        IsAdvertiser:req.body.IsAdvertiser
-    }).then(result => {
-        console.log(req.body.username);
-        console.log(result);
-    }).catch(err =>{
-        console.log(err);
+        const data = {userId:result.UserID,firstName:result.FirstName,lastName:result.LastName,email:result.Email,birthday:result.Birthday,gender:result.Gender,isAdmin:result.IsAdmin,isAdvertiser:result.IsAdvertiser,isBlocked:result.IsBlocked}
+        res.status(201).json({data:data,token:token});
+    })
+    .catch(err => {
+        if(err.name==="SequelizeUniqueConstraintError"){
+            res.status(422).json({message:"Email already in use"});
+        }else{
+            res.json({message:"something went wrong"});
+        }
     });
-    res.send("user created");
-}
 
-exports.getUser = (req,res)=>{
-    User.findByPk(req.body.id).then(result=>{
-        console.log(result);
-        res.send(result);
-    }).catch(err=>{
-        console.log(err);
-    });
-}
+};
 
-exports.updateUser = (req,res)=>{
-    User.findByPk(req.body.id).then(user =>{
-        user.UserName = req.body.username;
-        user.Email = req.body.email;
-        user.FirstName = req.body.firstname;
-        user.LastName = req.body.lastname;
-        user.BirthDay = req.body.birthday;
-        user.Password = req.body.password;
-        user.PhoneNumber = req.body.PhoneNumber;
-        //user.IsAdvertiser = req.body.IsAdvertiser;
-        user.save();
-        res.send(user);
-        console.log(user);
-
-    }
-    ).catch(err => console.log(err));
+// exports.updateUser = (req, res) => {
     
-}
-// exports.deleteUser = (req,res) => {
-//     const userid = req.body.id;
-//     Eventjoin.destroy({where :{UserID:userid}}).then( result=>{
-//         console.log(result);
-//     }).catch(err=>{
-//         console.log(err);
-//     });
-//     Requestroom.destroy({where :{UserID:userid}}).then( result=>{
-//         console.log(result);
-//     }).catch(err=>{
-//         console.log(err);
-//     });
-//     Roomuser.destroy({where :{UserID:userid}}).then( result=>{
-//         console.log(result);
-//     }).catch(err=>{
-//         console.log(err);
-//     });
-//     Roommanager.destroy({where :{UserID:userid}}).then( result=>{
-//         console.log(result);
-//     }).catch(err=>{
-//         console.log(err);
-//     });
-//     User.findByPk(userid).then(user=>{
-//         user.destroy();
-//     }).catch(err=>{
-//         console.log(err);
-//     });
+//     const { email,firstName,lastName,birthday,password,gender,isAdmin,isBlocked } = req.body;
+//     const userId = req.params.userId;
+    
+//     let hashedPassword;
+//     bcrypt.hash(password,10)
+//     .then(result => {
+//        return hashedPassword = result;
+//     })
+//     .then(result => {
+//         return User.findByPk(userId)
+//     })
+//     .then(user => {
+//         console.log(user);
+//         user.Email = email ;
+//         user.FirstName = firstName;
+//         user.LastName = lastName;
+//         user.Birthday = birthday;
+//         user.Password = password || hashedPassword;
+//         user.Gender = gender;
+//         user.IsAdmin = isAdmin || user.IsAdmin;
+//         user.IsBlocked = isBlocked || user.IsBlocked;
+//         user.save();
+//         res.status(200).json(user);
+//     })
+//     User.findByPk(userId)
+//       .then(user => {
+//           console.log(user);
+//         user.Email = email ;
+//         user.FirstName = firstName;
+//         user.LastName = lastName;
+//         user.Birthday = birthday;
+//         user.Password = password;
+//         user.Gender = gender;
+//         user.IsAdmin = isAdmin || user.IsAdmin;
+//         user.IsBlocked = isBlocked || user.IsBlocked;
+//         user.save();
+//         res.status(201).json(user);
+    
+//       })
+//       .catch((err) => {
+//         if(err.name==="SequelizeUniqueConstraintError"){
+//             res.status(422).json({message:"Email already in use"});
+//         }else{
+//             res.json({message:"something went wrong"});
+//         }
+//       });
+// };
 
-// }
+
+exports.deleteUser = (req, res) => {
+    const userId = req.params.userId;
+    User.findByPk(userId)
+      .then((user) => {
+        user.destroy();
+        res.status(200).json({message:"User deleted"});
+      })
+      .catch((err) => {
+        res.json({message:"something went wrong"});
+      });
+  };
+
+
+
+exports.login = (req, res, next) => {
+    const { email, password } = req.body;
+    let data;
+        User.findOne({
+            where: {
+                Email: email,
+            },
+        })
+        .then((result) => {
+            
+            data = {
+                userId:result.UserID,
+                firstName: result.FirstName,
+                lastName: result.LastName,
+                email: result.Email,
+                birthday: result.Birthday,
+                gender: result.Gender,
+                isAdmin: result.IsAdmin,
+                isAdvertiser: result.IsAdvertiser,
+                isBlocked: result.IsBlocked,
+        };
+            return result;
+        })
+        .then((result) => {
+            console.log(result);
+          return bcrypt.compare(password, result.Password);
+               
+        })
+        .then((result) => {
+        if (result) {
+
+            let token;
+            try{
+                token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '24h'});
+            } catch (err){
+                res.json({message:"something went wrong"});
+            }
+
+            res.status(200).json({data:data,token:token});
+        } else {
+            res.json("wrong password");
+        }
+        })
+        .catch((err) => {
+            console.log(err);
+        });
+};
+
+exports.getUser = (req, res) => {
+  console.log(req.params.userId);
+  User.findByPk(req.params.userId)
+    .then((result) => {
+      let data = {
+        userId: result.UserID,
+        email: result.Email,
+        firstName: result.FirstName,
+        lastName: result.LastName,
+        birthday: result.Birthday,
+        isAdvertiser: result.IsAdvertiser,
+        isAdmin: result.IsAdmin,
+        isBlocked: result.IsBlocked,
+        gender: result.Gender,
+      };
+      res.send(data);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
+
+
+
+
+exports.fetchAllUsers = (req, res) => {
+  User.findAll({})
+    .then((result) => {
+      const data = result.map((user) => {
+        return {
+          userId: user.UserID,
+          firstName: user.FirstName,
+        };
+      });
+      res.send(data);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
