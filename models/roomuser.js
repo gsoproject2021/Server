@@ -29,6 +29,11 @@ const Roomuser = sequelize.define('roomuser',{
         type: Sequelize.ENUM('true','false'),
         allowNull:false,
         defaultValue:false
+      },
+      RoomUser:{
+        type:Sequelize.STRING(45),
+        allowNull:true,
+        unique:true
       }
 });
 

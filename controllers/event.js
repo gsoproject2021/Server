@@ -1,6 +1,6 @@
 const Event = require("../models/event");
 const Roomuser = require("../models/roomuser");
-
+const socketActions = require('../util/helper');
 
 
 
@@ -28,32 +28,37 @@ exports.createEvent = (req,res)=>{
     const {event,roomId} = req.body;
     const {userId} = req.userDetails;
     
-    let date = req.body.event.eventDate.split('T');
-
+    let date = event.eventDate.split('T');
+    console.log(date,roomId,userId);
     Roomuser.findAll({
         where:{
             RoomID:roomId,
-            UserId:userId
+            UserId:userId,
+            IsAdmin:1
         }
     })
     .then(result => {
-        console.log(result.IsAdmin);
-        if (result.IsAdmin){
+        
+        if (result.length > 0){
+            console.log("okok")
             return Event.create({
                 Subject: event.eventSubject,
                 EventHour: date[1],
                 EventDate: date[0],
                 Description: event.eventDescription,
-                RoomID: roomId})
+                RoomID: roomId});
         }
         else{
             res.json({message:"user not allowed to create event"});
+            
         }
     })
     .then(result =>{
-        console.log(result);
-        const event = {eventId:result.EventID,subject:result.Subject,date:result.EventDate,hour:result.EventHour,description:result.Description};
-        console.log(event);
+        console.log("test",result);
+        const event = {eventId:result.EventID,subject:result.Subject,date:result.EventDate,hour:result.EventHour,description:result.Description,roomId:roomId,userId:req.userDetails.userId};
+        
+        socketActions.addEvent(event);
+        console.log('event');
         res.status(201).json(event);
     }).catch(err =>{
         console.log(err);
@@ -64,50 +69,55 @@ exports.createEvent = (req,res)=>{
  * update events details
  */
 exports.updateEvent = (req,res)=>{
-    const {subject,description,roomId,eventId} = req.body;
+    const {event,roomId} = req.body;
     const {userId} = req.userDetails;
-    let date = req.body.eventDate.split('T');
+    console.log(event);
+    let date = event.eventDate.split('T');
     
     Roomuser.findAll({
         where:{
             RoomID:roomId,
-            UserID:userId
+            UserID:userId,
+            IsAdmin:1
         }
     })
     .then(result => {
-        if(result.IsAdmin){
-            return Event.findByPk(req.body.eventId).then(event =>{
-                event.Subject = subject;
-                event.EventHour = date[1];
-                event.EventDate = date[0];
-                event.Description = description;
-                event.save();})
+        if(result.length>0){
+            return Event.findByPk(event.eventId);
         }
     })
-    .then(event => {
+    .then(result => {
         console.log(event);
-        let updatedEvent = {eventId:event.EventID,subject:event.Subject,date:event.EventDate+' '+event.EventHour,description:event.Description}
+        result.Subject = event.eventSubject;
+        result.EventHour = date[1];
+        result.EventDate = date[0];
+        result.Description = event.eventDescription;
+        result.save();
+        let updatedEvent = {eventId:result.EventID,subject:result.Subject,date:result.EventDate,hour:result.EventHour,description:result.Description,roomId:roomId};
+        socketActions.updateEvent(updatedEvent);
         res.status(200).json(updatedEvent);
     }).catch(err =>{
         console.log(err);
-        req.json({message:"something wentwrong event didn't updated"});
+        res.json({message:"something went wrong event didn't updated"});
     });
 }
 /**
  * delete event from events table
  */
 exports.deleteEvent = (req,res) =>{
-    const {roomId,eventId} = req.body;
+    // const {roomId} = req.body;
+    const {eventId,roomId} = req.body;
     const {userId} = req.userDetails;
-
+    console.log(roomId,eventId,userId);
     Roomuser.findAll({
         where:{
             RoomID:roomId,
-            UserId:userId
+            UserId:userId,
+            IsAdmin:1
         }
     })
     .then(result => {
-        if(result.IsAdmin){
+        if(result.length > 0){
             return Event.destroy({
                 where:{
                     EventID:eventId
@@ -116,7 +126,11 @@ exports.deleteEvent = (req,res) =>{
         }
     })
     .then(result => {
-        res.status(200).json({message:"Event Deleted"})
+        if(result){
+            socketActions.deleteEvent(eventId,roomId);
+            res.status(200).json({message:"Event Deleted"})
+        }
+        
     })
     .catch(err=>{
         console.log(err);

@@ -28,6 +28,11 @@ const Room = sequelize.define('room',{
           model: 'users',
           key: 'UserID'
         }
+      },
+      ImageUrl: {
+        type: Sequelize.STRING(300),
+        allowNull:true,
+        defaultValue:''
       }
       
 });

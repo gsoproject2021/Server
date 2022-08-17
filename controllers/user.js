@@ -26,7 +26,17 @@ exports.signup = (req,res)=>{
             res.json({message:"something went wrong"});
         }
 
-        const data = {userId:result.UserID,firstName:result.FirstName,lastName:result.LastName,email:result.Email,birthday:result.Birthday,gender:result.Gender,isAdmin:result.IsAdmin,isAdvertiser:result.IsAdvertiser,isBlocked:result.IsBlocked}
+        const data = {
+          userId:result.UserID,
+          firstName: result.FirstName,
+          lastName: result.LastName,
+          email: result.Email,
+          birthday: result.Birthday,
+          gender: result.Gender,
+          isAdmin: result.IsAdmin,
+          isAdvertiser: result.IsAdvertiser,
+          isBlocked: result.IsBlocked}
+          
         res.status(201).json({data:data,token:token});
     })
     .catch(err => {
@@ -38,6 +48,75 @@ exports.signup = (req,res)=>{
     });
 
 };
+
+exports.updateUser = (req,res) => {
+    const {firstName,lastName,email,gender,imageType} = req.body;
+    
+    const userId = req.userDetails.userId;
+    
+     
+    
+      console.log(req.body.formData);
+    User.findByPk(userId)
+    .then(user => {
+        
+        user.Email = email;
+        user.FirstName = firstName;
+        user.LastName = lastName;
+        user.Gender = gender;
+        user.save();
+        
+        let data = {
+          userId:user.UserID,
+          firstName: firstName,
+          lastName: lastName,
+          email: email,
+          birthday: user.Birthday,
+          gender: gender,
+          isAdmin: user.IsAdmin,
+          isAdvertiser: user.IsAdvertiser,
+          isBlocked: user.IsBlocked,
+          // image:req.file.path || ''
+        };
+        
+        res.json(data);
+    })
+    .catch((err) => {
+      if(err.name==="SequelizeUniqueConstraintError"){
+        res.status(422).json({message:"Email already in use"});
+      }else{
+        res.json({message:"something went wrong"});
+      }
+    });
+}
+
+exports.uploadPicture = (req,res) => {
+
+  User.findByPk(req.userDetails.userId)
+  .then(user => {
+    user.ImageUrl = req.file.path ? req.file.path : '';
+    user.save();
+    
+    let data = {
+      userId:user.UserID,
+      firstName: user.FirstName,
+      lastName: user.LastName,
+      email: user.Email,
+      birthday: user.Birthday,
+      gender: user.Gender,
+      isAdmin: user.IsAdmin,
+      isAdvertiser: user.IsAdvertiser,
+      isBlocked: user.IsBlocked,
+      image:req.file.path ? req.file.path : ''
+    };
+    
+    res.json(data);
+  })
+  .catch(err => {
+    console.log(err)
+  })
+
+}
 
 // exports.updateUser = (req, res) => {
     
@@ -105,6 +184,7 @@ exports.deleteUser = (req, res) => {
 
 
 exports.login = (req, res, next) => {
+  
     const { email, password } = req.body;
     let data;
         User.findOne({
@@ -124,15 +204,17 @@ exports.login = (req, res, next) => {
                 isAdmin: result.IsAdmin,
                 isAdvertiser: result.IsAdvertiser,
                 isBlocked: result.IsBlocked,
+                image:result.ImageUrl
         };
             return result;
         })
         .then((result) => {
-            console.log(result);
+          
           return bcrypt.compare(password, result.Password);
                
         })
         .then((result) => {
+          
         if (result) {
 
             let token;
@@ -141,7 +223,6 @@ exports.login = (req, res, next) => {
             } catch (err){
                 res.json({message:"something went wrong"});
             }
-
             res.status(200).json({data:data,token:token});
         } else {
             res.json("wrong password");
@@ -192,3 +273,7 @@ exports.fetchAllUsers = (req, res) => {
       console.log(err);
     });
 };
+
+exports.addPicture = (req,res) => {
+
+}

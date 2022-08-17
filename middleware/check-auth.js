@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
 
 exports.checkAuth = (req,res,next) => {
-    
+    if (req.method === 'OPTIONS') {
+        return next();
+      }
     try{
-        console.log(req.headers.authorization);
         const token = req.headers.authorization.split(' ')[1];
         
         if(!token){
@@ -12,7 +13,7 @@ exports.checkAuth = (req,res,next) => {
         const decodedToken = jwt.verify(token,'P@$$w0rd');
         req.userDetails = decodedToken.userDetails;
         // console.log("ok");
-        // console.log(req.userDetails);
+        //console.log(req.userDetails);
         next();
     } catch (err){
         // const error = new Error("Authentication failed");

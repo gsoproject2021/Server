@@ -1,25 +1,66 @@
-/**
- * filter duplicate data in array
- */
-exports.filterData = (data)=>{
 
-    let newMapData = data.map(item=>{return [item.id,item]});
-    let cleanedData =  new Map(newMapData);
-    return [...cleanedData.values()];  
+const { getIO } = require('./socket-io');
+const io = require('./socket-io');
+const Room = require('../models/room');
+
+exports.sendAddedUsers = (room) => {
+    
+    room.users.forEach(user => io.getIO().emit(`rooms_${user.userId}`,{action:'add',data:room}));
+    
 }
 
-/**
- * 
- * @param {*} rooms all rooms of some users 
- * @param {*} users all users that members of rooms
- * @param {*} events all events of rooms
- * @returns rooms with all users and events of each room
- */
-exports.buildData = (rooms,users,events)=>{
-    rooms.forEach((item)=>{
-        item.members = users.filter(user=> user.id === item.id);
-        item.events = events.filter(event=> event.roomId === item.id);
-        return item;
-    });
-    return rooms;
+exports.deleteRoom = (users,roomId) => {
+    
+    users.forEach(user => io.getIO().emit(`rooms_${user}`,{action:'delete',data:parseInt(roomId)}));
+    
+}
+
+exports.updateRoomName = (room) => {
+
+    io.getIO().emit(`event_room_${room.roomId}`,{action:'rename',data:room});
+}
+
+exports.removeUser = (userId,roomId) => {
+
+    io.getIO().emit(`event_room_${roomId}`,{action:'remove',data:{roomId,userId}});
+
+}
+
+exports.addEvent = (event) => {
+
+    io.getIO().emit(`events_${event.roomId}`,{action:'create_event',data:event});
+    return;
+}
+
+exports.updateEvent = (event) => {
+
+    io.getIO().emit(`events_${event.roomId}`,{action:'update_event',data:event});
+}
+
+exports.deleteEvent = (eventId,roomId) => {
+
+    io.getIO().emit(`events_${roomId}`,{action:'delete_event',data:{eventId,roomId}})
+}
+
+exports.uploadImage = (image) => {
+
+    io.getIO().emit(`upload_image_${image.roomId}`,{action:'add',data:image});
+}
+
+exports.onLogin = (socket,rooms) => {
+
+
+
+}
+
+exports.fetchAllRooms = () => {
+    let rooms;
+    Room.findAll()
+    .then(result => {
+        rooms = result.map(room => room.RoomID);
+        return rooms;
+    })
+    .catch(err => {
+    console.log(err);
+    })
 }

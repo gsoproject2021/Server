@@ -23,16 +23,19 @@ app.use('/images/users', express.static(path.join('images', 'users')));
 app.use('/images/rooms', express.static(path.join('images', 'rooms')));
 
 
-let rooms = [];
+let rooms = new Map();
 
 Room.findAll()
     .then(result => {
-        rooms = result.map(room => {return{roomId:room.RoomID,users:[]}});
-        return rooms;
+        result.forEach(room => {
+          rooms.set(room.RoomID,[]);
+        })
     })
     .catch(err => {
     console.log(err);
 })
+
+
 
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -68,7 +71,8 @@ sequelize
             console.log('client connected',socket.id);
             socket.on('user_joined', data => {
               console.log(data)
-              data.rooms.forEach(room => )
+              data.rooms.forEach(room => rooms.set(room,[...rooms.get(room),data.userId]));
+              console.log(rooms);
               data.rooms.forEach(room => socket.broadcast.emit(`is_user_online${room}`,{userData:{userId:data.userId,roomId:room,isOnline:true}}));
             })
         })
