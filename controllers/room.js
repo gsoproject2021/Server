@@ -14,67 +14,147 @@ const Roomuser = require('../models/roomuser');
 const socketActions = require('../util/helper');
 
 
+
+/**
+ * fetch all public room and all rooms of user and room's user and events
+ */
+
+exports.getAllUserData = async (req,res) => {
+
+    let rooms = [];
+    let publicRooms = [];
+
+    try{
+        const userRooms = await sequelize.query(`select roomusers.RoomID, rooms.RoomName, rooms.ImageUrl from roomusers
+            join rooms on roomusers.RoomID = rooms.RoomID
+            where UserID = ?`,{
+                replacements:[`${req.params.userId}`],
+                type: QueryTypes.SELECT
+            })
+        if(userRooms){
+            rooms = userRooms.map(room => {return {
+                roomId:room.RoomID,
+                roomName:room.RoomName,
+                users:[],
+                events:[],
+                messages:[]
+            }});
+        }
+
+        for(const room of rooms){
+            const roomUsers = await sequelize.query(`select roomusers.IsAdmin,roomusers.UserID,roomusers.RoomID, users.FirstName,users.ImageUrl from roomusers 
+                    join users on roomusers.UserID = users.UserID
+                    join rooms on roomusers.RoomID = rooms.RoomID
+                    where roomusers.RoomID in (:room)`,{
+                        replacements:{ room: room.roomId},
+                        type: QueryTypes.SELECT
+                    });
+            if(!roomUsers){
+                room.users = [];
+            }
+            else{
+                let users = roomUsers.map(user => {return {
+                    userId:user.UserID,
+                    firstName:user.FirstName,
+                    isAdmin:user.IsAdmin,
+                    image:user.ImageUrl
+                }})
+                room.users = users;
+            }
+
+            let roomEvents = await Event.findByPk(room.roomId);
+            if(!roomEvents){
+                room.events = [];
+            }
+            else{
+                let events = roomEvent.map(event => {return{
+                    eventId:event.EventID,
+                    subject:event.Subject,
+                    date:event.EventDate,
+                    hour:event.EventHour,
+                    description:event.Description
+                }})
+                room.events = events;
+            }
+        }
+
+
+    }
+    catch(err){
+        console.log(err)
+    }
+
+}
+
+
 /**
  * fetch all rooms of some user
  */
 
-exports.getRooms = (req,res)=>{
-    sequelize.query(`select roomusers.RoomID, rooms.RoomName, rooms.ImageUrl from roomusers
-    join rooms on roomusers.RoomID = rooms.RoomID
-    where UserID = ?`,{
-        replacements:[`${req.params.userId}`],
-        type: QueryTypes.SELECT
-    })
+// exports.getRooms = (req,res)=>{
+//     console.log(req.params.userId)
+//     sequelize.query(`select roomusers.RoomID, rooms.RoomName, rooms.ImageUrl from roomusers
+//     join rooms on roomusers.RoomID = rooms.RoomID
+//     where UserID = ?`,{
+//         replacements:[`${req.params.userId}`],
+//         type: QueryTypes.SELECT
+//     })
     
-    .then(result=>{
+//     .then(result => {
+//         if(result.length === 0){
+//             throw new Error( 'user doesnt have rooms' );
+//         }
+//         let roomInd = result.map(room => {return room.RoomID});
+//         let data = result.map(room =>{return {roomId:room.RoomID,roomName:room.RoomName,users:[],events:[],messages:[],image:room.ImageUrl }});
+//         req.body.roomInd = roomInd
+//         req.body.rooms = data;
+//         return sequelize.query(`select roomusers.IsAdmin,roomusers.UserID,roomusers.RoomID, users.FirstName,users.ImageUrl from roomusers 
+//         join users on roomusers.UserID = users.UserID
+//         join rooms on roomusers.RoomID = rooms.RoomID
+//         where roomusers.RoomID in (:room)`,{
+//             replacements:{ room: roomInd},
+//             type: QueryTypes.SELECT
+//         })
         
-        let roomInd = result.map(room => {return room.RoomID});
-        let data = result.map(room =>{return {roomId:room.RoomID,roomName:room.RoomName,users:[],events:[],messages:[],image:room.ImageUrl }});
-        req.body.roomInd = roomInd
-        req.body.rooms = data;
-        return sequelize.query(`select roomusers.IsAdmin,roomusers.UserID,roomusers.RoomID, users.FirstName,users.ImageUrl from roomusers 
-        join users on roomusers.UserID = users.UserID
-        join rooms on roomusers.RoomID = rooms.RoomID
-        where roomusers.RoomID in (:room)`,{
-            replacements:{ room: roomInd},
-            type: QueryTypes.SELECT
-        })
+//     })
+//     .then(result => {
         
-    })
-    .then(result => {
-        let rooms = req.body.rooms;
+//         let rooms = req.body.rooms;
 
-        rooms.forEach((room) => {
-            room.users = result.filter(res => res.RoomID === room.roomId);
-            room.users = room.users.map(user => {
-                return {userId:user.UserID,firstName:user.FirstName,isAdmin:user.IsAdmin,image:user.ImageUrl,isOnline:false}})
-        })
-        req.body.rooms = rooms;
+//         rooms.forEach((room) => {
+//             room.users = result.filter(res => res.RoomID === room.roomId);
+//             room.users = room.users.map(user => {
+//                 return {userId:user.UserID,firstName:user.FirstName,isAdmin:user.IsAdmin,image:user.ImageUrl,isOnline: false}})
+//         })
+//         req.body.rooms = rooms;
         
-        return sequelize.query(`select * from events 
-            where RoomID in (:room)`,{
-            replacements:{ room: req.body.roomInd },
-            type: QueryTypes.SELECT
-        })
+//         return sequelize.query(`select * from events 
+//             where RoomID in (:room)`,{
+//             replacements:{ room: req.body.roomInd },
+//             type: QueryTypes.SELECT
+//         })
         
-    })
-    .then(result => {
-        let rooms = req.body.rooms;
+//     })
+//     .then(result => {
         
-        rooms.forEach((room) => {
-            room.events = result.filter(res => room.roomId === res.RoomID);
+//         let rooms = req.body.rooms;
+        
+//         rooms.forEach((room) => {
+//             room.events = result.filter(res => room.roomId === res.RoomID);
             
-            room.events = room.events.map(event=>{
-                return{eventId:event.EventID,subject:event.Subject,date:event.EventDate,hour:event.EventHour,description:event.Description}
-            })
-        })
-        res.json(rooms);
-    })
-    .catch(err=>{
-        console.log(err);
-    })
+//             room.events = room.events.map(event=>{
+//                 return{eventId:event.EventID,subject:event.Subject,date:event.EventDate,hour:event.EventHour,description:event.Description}
+//             })
+//         })
+//         res.json(rooms);
+//     })
+//     .catch(err=>{
+//         if(err === "user doesnt have rooms"){
+//             res.json([]);
+//         }
+//     })
     
-};
+// };
 
 exports.fetchAllRooms = (req,res) =>{
     console.log("test");
@@ -103,12 +183,12 @@ exports.createRoom = (req,res,next)=>{
     let date = new Date();
     let createDate = `${date.getDay()}/${date.getMonth()}/${date.getFullYear()}`;
     let createHour = `${date.getHours()}:${date.getMinutes()}`;
-    console.log(req.userDetails.userId);
+    console.log(req.userDetails);
     Room.create({
         RoomName: req.body.roomName,
         CreateDate: createDate,
         CreateHour:createHour,
-        CreatorUserID: req.userDetails.userId
+        CreatorUserID: req.userDetails.userId || req.userDetails.UserID
     }).then(result=>{
         req.body.created = 'created';
         let room = {roomId:result.RoomID,roomName:result.RoomName,users:[],events:[],messages:[]};
@@ -160,7 +240,7 @@ exports.deleteRoom = (req,res)=>{
     Roomuser.findAll({
         where:{
             RoomID:roomId,
-            UserID:req.userDetails.userId,
+            UserID:req.userDetails.userId ,
             IsAdmin:1
         }
     })
@@ -190,7 +270,7 @@ exports.deleteRoom = (req,res)=>{
 
 exports.createLog = (req,res,next)=>{
     let date = new Date();
-    let logFile = path.join(`C:/Users/vitali/Desktop/gsopro/server/logs/${req.body.room.roomName}.json`);
+    let logFile = path.join(`C:/Users/vitali/Desktop/gsopro/server/logs/${req.body.roomId}.json`);
     let createDate = `${date.getDay()}/${date.getMonth()}/${date.getFullYear()}`;
     let createHour = `${date.getHours()}:${date.getMinutes()}`;
     const roomId = req.body.roomId;
@@ -212,23 +292,60 @@ exports.createLog = (req,res,next)=>{
 
 }
 
-exports.getRoomData = (req,res) => {
+// send users and event some room for admin
+exports.getRoomData = async (req,res) => {
+    
+    let users = [];
+    let events = [];
+    if(!req.userDetails.isAdmin){
+        return res.json({message: "unauthorized request"});
+    }
+    try{
+        const fetchedUsers = await sequelize.query(`select roomusers.IsAdmin,roomusers.UserID, users.FirstName,users.ImageUrl from roomusers 
+        join users on roomusers.UserID = users.UserID
+        where RoomID = ?`,{
+            replacements:[`${req.params.roomId}`],
+            type: QueryTypes.SELECT
+        });
+        if(fetchedUsers){
+            users = fetchedUsers.map(user => {return {userId:user.UserID,
+                                                            firstName:user.FirstName,
+                                                            isAdmin:user.IsAdmin,
+                                                            image:user.ImageUrl}});
+        }
 
-    Room.findByPk(req.body.roomId)
-    .then(result => {
-        req.body.roomDetails.roomName = result.RoomName;
-        return Event.findAll({where: {RoomID:req.body.roomDetails.roomId}})
-    })
-    .then(result => {
-        req.body.roomDetails.events = result.map(event=>{
-            return{eventId:event.EventID,subject:event.Subject,date:event.EventDate+' '+event.EventHour,description:event.Description}})
-        
-        socketActions.sendAddedUsers(req.body.roomDetails);
-        res.json(req.body.roomDetails);
-    })
-    .catch(err => {
+        const fetchedEvents = await Event.findAll({
+            where: {RoomID:req.params.roomId}
+        });
+        if(fetchedEvents){
+            events = fetchedEvents.map(event => {return {eventId:event.EventID,
+                subject:event.Subject,
+                date:event.EventDate,
+                hour:event.EventHour,
+                description:event.Description,
+                roomId:req.params.roomId}} )
+        }
+        res.json({users,events});
+    }
+    catch(err){
         console.log(err);
-    })
+    }
+
+    // Room.findByPk(req.body.roomId)
+    // .then(result => {
+    //     req.body.roomDetails.roomName = result.RoomName;
+    //     return Event.findAll({where: {RoomID:req.body.roomDetails.roomId}})
+    // })
+    // .then(result => {
+    //     req.body.roomDetails.events = result.map(event=>{
+    //         return{eventId:event.EventID,subject:event.Subject,date:event.EventDate+' '+event.EventHour,description:event.Description}})
+        
+    //     socketActions.sendAddedUsers(req.body.roomDetails);
+    //     res.json(req.body.roomDetails);
+    // })
+    // .catch(err => {
+    //     console.log(err);
+    // })
 }
 
 exports.uploadImage = (req,res) => {
@@ -249,4 +366,8 @@ exports.uploadImage = (req,res) => {
     .catch(err => {
         console.log(err);
     })
+}
+
+exports.getRoomDataByAdmin = async (req,res) => {
+
 }

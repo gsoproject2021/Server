@@ -45,7 +45,7 @@ exports.getUsers = (req,res,next)=>{
 exports.addUsers = (req,res,next) => {
     
     let roomId;
-    let roomCreator = {RoomID:req.body.roomId,UserID:req.userDetails.userId,IsAdmin:true};
+    let roomCreator = {RoomID:req.body.roomId,UserID:req.userDetails.userId || req.userDetails.UserID,IsAdmin:true,isOnline:true};
     let users = [];
     if(req.body.created === 'created'){
         console.log(req.body.created);
@@ -71,11 +71,11 @@ exports.addUsers = (req,res,next) => {
         console.log(result);
         if(req.body.created === 'created'){
             let room = req.body.room;
-            room.users = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin}})
+            room.users = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin,isOnline:true}})
             
             res.json(room);
         }else{
-            let data = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin}})
+            let data = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin,isOnline:false}})
             req.body.roomDetails = {roomId:req.body.roomId,roomName:'',users:data,events:[],messages:[]};
             next();
             // res.json(data);

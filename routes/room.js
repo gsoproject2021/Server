@@ -13,7 +13,8 @@ router.use(checkAuth);
 //router.get('/roomDetails/:roomId',eventsController.getEvents,roomUsersController.getRoomDetails);
 router.get('/roomUsers',roomUsersController.getAllUsers);
 router.get('/roomUser/:userId',roomController.getRooms);
-router.get('/rooms',roomController.fetchAllRooms);
+router.get('/rooms/',roomController.fetchAllRooms);
+router.get('/roomDetails/:roomId',roomController.getRoomData)
 
 router.post('/roomUser/:roomId',roomUsersController.addUsers,roomController.getRoomData);
 router.delete('/roomUser',roomUsersController.removeUser);

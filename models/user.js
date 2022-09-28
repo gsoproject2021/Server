@@ -52,8 +52,17 @@ const User = sequelize.define('user',{
         type: Sequelize.STRING(300),
         allowNull:true,
         defaultValue:''
+      },
+      Address: {
+        type: Sequelize.STRING(45),
+        allowNull: true,
+        defaultValue: ''
+      },
+      Phone: {
+        type: Sequelize.STRING(10),
+        allowNull: true,
+        defaultValue: ''
       }
-      
 });
 
 
