@@ -12,6 +12,8 @@ const Event = require('../models/event')
 const sequelize = require('../util/dbconfig');
 const Roomuser = require('../models/roomuser');
 const socketActions = require('../util/helper');
+const PublicRoom = require('../models/publicroom');
+const { validationResult } = require('express-validator');
 
 
 
@@ -37,46 +39,57 @@ exports.getAllUserData = async (req,res) => {
                 roomName:room.RoomName,
                 users:[],
                 events:[],
-                messages:[]
+                messages:[],
+                image:room.ImageUrl
             }});
+        
+        
+
+            for(const room of rooms){
+                const roomUsers = await sequelize.query(`select roomusers.IsAdmin,roomusers.UserID,roomusers.RoomID, users.FirstName,users.ImageUrl from roomusers 
+                        join users on roomusers.UserID = users.UserID
+                        join rooms on roomusers.RoomID = rooms.RoomID
+                        where roomusers.RoomID in (:room)`,{
+                            replacements:{ room: room.roomId},
+                            type: QueryTypes.SELECT
+                        });
+                if(!roomUsers){
+                    room.users = [];
+                }
+                else{
+                    let users = roomUsers.map(user => {return {
+                        userId:user.UserID,
+                        firstName:user.FirstName,
+                        isAdmin:user.IsAdmin,
+                        image:user.ImageUrl
+                    }})
+                    room.users = users;
+                }
+
+                let roomEvents = await Event.findByPk(room.roomId);
+                if(!roomEvents){
+                    room.events = [];
+                }
+                else{
+                    let events = roomEvent.map(event => {return{
+                        eventId:event.EventID,
+                        subject:event.Subject,
+                        date:event.EventDate,
+                        hour:event.EventHour,
+                        description:event.Description
+                    }})
+                    room.events = events;
+                }
+            }
         }
 
-        for(const room of rooms){
-            const roomUsers = await sequelize.query(`select roomusers.IsAdmin,roomusers.UserID,roomusers.RoomID, users.FirstName,users.ImageUrl from roomusers 
-                    join users on roomusers.UserID = users.UserID
-                    join rooms on roomusers.RoomID = rooms.RoomID
-                    where roomusers.RoomID in (:room)`,{
-                        replacements:{ room: room.roomId},
-                        type: QueryTypes.SELECT
-                    });
-            if(!roomUsers){
-                room.users = [];
-            }
-            else{
-                let users = roomUsers.map(user => {return {
-                    userId:user.UserID,
-                    firstName:user.FirstName,
-                    isAdmin:user.IsAdmin,
-                    image:user.ImageUrl
-                }})
-                room.users = users;
-            }
 
-            let roomEvents = await Event.findByPk(room.roomId);
-            if(!roomEvents){
-                room.events = [];
-            }
-            else{
-                let events = roomEvent.map(event => {return{
-                    eventId:event.EventID,
-                    subject:event.Subject,
-                    date:event.EventDate,
-                    hour:event.EventHour,
-                    description:event.Description
-                }})
-                room.events = events;
-            }
-        }
+
+        let fetchPublicRoom = await PublicRoom.findAll();
+        if(fetchPublicRoom){
+            publicRooms = fetchPublicRoom.map(publicRoom => {return { roomId:publicRoom.RoomID,roomName:publicRoom.RoomName}})
+        }        
+        res.json({message:`Welcome`,rooms,publicRooms})
 
 
     }
@@ -179,29 +192,90 @@ exports.fetchAllRooms = (req,res) =>{
 * createRoom function is function that create new room in database
 *  this function add row into rooms, roommanagers, roomusers tables  
 */
-exports.createRoom = (req,res,next)=>{
+exports.createRoom = async (req,res,next)=>{
+    const errors = validationResult(req);
+    if(!errors.isEmpty()){
+        let [data] =(errors.errors)
+        return res.send(data.msg);
+    }
+
     let date = new Date();
     let createDate = `${date.getDay()}/${date.getMonth()}/${date.getFullYear()}`;
     let createHour = `${date.getHours()}:${date.getMinutes()}`;
-    console.log(req.userDetails);
-    Room.create({
-        RoomName: req.body.roomName,
-        CreateDate: createDate,
-        CreateHour:createHour,
-        CreatorUserID: req.userDetails.userId || req.userDetails.UserID
-    }).then(result=>{
-        req.body.created = 'created';
-        let room = {roomId:result.RoomID,roomName:result.RoomName,users:[],events:[],messages:[]};
-        req.body.roomId = result.RoomID;
-        req.body.room = room;
-        next();
-    }).catch(err=>{
-        console.log(err);
-    });
+    
+    try{
+        const newRoom = await Room.create({
+                RoomName: req.body.roomName,
+                CreateDate: createDate,
+                CreateHour:createHour,
+                CreatorUserID: req.userDetails.userId
+        });
+        
+        if(!newRoom){
+            res.send("something went wrong room didn't created");
+        }
+
+        let room = {
+            roomId:newRoom.RoomID,
+            roomName:newRoom.RoomName,
+            users:[],
+            events:[],
+            messages:[]
+        };
+        
+        const userRoom = await Roomuser.create({
+            RoomID:newRoom.RoomID,
+            UserID:req.userDetails.userId,
+            IsAdmin:true
+        });
+        
+        if(!userRoom){
+            newRoom.destroy();
+            res.send("something went wrong can't create room");
+        }
+
+        const user = {
+            userId: req.userDetails.userId,
+            firstName: req.userDetails.firstName,
+            image: req.userDetails.image,
+            isAdmin: true,
+            isOnline:true
+        }
+        
+        room.users.push(user);
+        res.json(room);
+
+    }
+    catch(err){
+        res.send("something went wrong  try again");
+    }
+
+
+    // console.log(req.userDetails);
+    // Room.create({
+    //     RoomName: req.body.roomName,
+    //     CreateDate: createDate,
+    //     CreateHour:createHour,
+    //     CreatorUserID: req.userDetails.userId || req.userDetails.UserID
+    // }).then(result=>{
+    //     req.body.created = 'created';
+    //     let room = {roomId:result.RoomID,roomName:result.RoomName,users:[],events:[],messages:[]};
+    //     req.body.roomId = result.RoomID;
+    //     req.body.room = room;
+    //     next();
+    // }).catch(err=>{
+    //     console.log(err);
+    // });
 }
    
 exports.updateRoom = (req,res)=>{
     
+    const errors = validationResult(req);
+    if(!errors.isEmpty()){
+        let [data] =(errors.errors)
+        return res.send(data.msg);
+    }
+
     const {roomId,roomName} = req.body;
     const userId = req.userDetails.userId
     console.log(roomId,userId);
@@ -234,8 +308,9 @@ exports.updateRoom = (req,res)=>{
 }
 
 exports.deleteRoom = (req,res)=>{
-    console.log("ok");
+    
     const { roomId } = req.params;
+
     let users = req.body.users.map(user => parseInt(user.userId));
     Roomuser.findAll({
         where:{
@@ -255,15 +330,15 @@ exports.deleteRoom = (req,res)=>{
         if(result){
             console.log(users,roomId);
             socketActions.deleteRoom(users,roomId);
-            res.json({message:"Room deleted"});
+            res.send("Room deleted");
 
         }else{
-            res.json({message:"user unautorized to delete this room"})
+            res.send("user unautorized to delete this room")
         }
     })
     .catch(err=>{
         console.log(err);
-        res.json({message:"something went wrong room didn't deleted"});
+        res.send("something went wrong room didn't deleted");
     });
 
 }

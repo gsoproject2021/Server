@@ -13,6 +13,11 @@ module.exports = {
     if (!io) {
       throw new Error('Socket.io not initialized!');
     }
+
+    io.on("connection", (socket) => {
+      console.log(socket);
+    })
+
     return io;
   }
 };

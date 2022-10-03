@@ -1,4 +1,4 @@
-const PublicRoom = require('../controllers/publicroom');
+const PublicRoom = require('../models/publicroom');
 
 
 exports.getPublicRooms = async (req,res) => {
@@ -15,8 +15,35 @@ exports.getPublicRooms = async (req,res) => {
     }
 }
 
+exports.addPublicRoom = async (req,res) => {
+    console.log(req.body)
+    if(!req.userDetails.isAdmin){
+        return res.json({message: "You can't add public room"})
+    }
+    try{
+
+        
+        const response = await PublicRoom.create({
+            RoomName:req.body.roomName
+        })
+        if(!response){
+            return res.json({message:"something went wrong room didn't created"});
+        }
+        const room ={
+            roomId: response.RoomID,
+            roomName: response.RoomName
+        }
+        console.log(room)
+        res.json({message:"Room created",room:room});
+    }
+    catch(err){
+        console.log(err);
+    }
+}
+
 exports.updatePublicRoomName = async (req,res) => {
-    if(!res.userDetails.iaAdmin){
+    console.log(req.userDetails)
+    if(!req.userDetails.isAdmin){
         return res.json({message:"you can't change public room name"});
     }
     try{
@@ -35,8 +62,8 @@ exports.updatePublicRoomName = async (req,res) => {
 }
 
 exports.deletePublicRoom = async (req,res) => {
-
-    if(!res.userDetails.isAdmin){
+    
+    if(!req.userDetails.isAdmin){
         return res.json({message:"you can't delete public room"});
     }
 

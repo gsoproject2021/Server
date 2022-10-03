@@ -1,3 +1,4 @@
+const { validationResult } = require("express-validator");
 const Event = require("../models/event");
 const Roomuser = require("../models/roomuser");
 const socketActions = require('../util/helper');
@@ -24,118 +25,170 @@ exports.getEvents = (req,res,next)=>{
 /**
  * add event in events table
  */
-exports.createEvent = (req,res)=>{
-    const {event,roomId} = req.body;
-    const {userId} = req.userDetails;
+exports.createEvent = async (req,res) => {
     
-    let date = event.eventDate.split('T');
-    console.log(date,roomId,userId);
-    Roomuser.findAll({
-        where:{
-            RoomID:roomId,
-            UserId:userId,
-            IsAdmin:1
-        }
-    })
-    .then(result => {
+    const errors = validationResult(req);
+    let newDate = req.body.date.split('T');
+    if(!errors.isEmpty()){
+        let [data] =(errors.errors)
+        return res.send(data.msg);
+    }
+    try{
+        const roomUser = await Roomuser.findOne({
+            where: {RoomID:req.body.roomId,
+                    UserID:req.userDetails.userId}
+        })
         
-        if (result.length > 0){
-            console.log("okok")
-            return Event.create({
-                Subject: event.eventSubject,
-                EventHour: date[1],
-                EventDate: date[0],
-                Description: event.eventDescription,
-                RoomID: roomId});
+        if(!roomUser || !roomUser.IsAdmin){
+            return res.send("Something went wrong can't create an event")
         }
-        else{
-            res.json({message:"user not allowed to create event"});
-            
+        
+       
+        
+        const newEvent = await Event.create({
+            Subject: req.body.subject,
+                    EventHour: newDate[1],
+                    EventDate: newDate[0],
+                    Description: req.body.description,
+                    RoomID: req.body.roomId
+        });
+        
+        if(!newEvent){
+            return res.send("Something went wrong can't create event ");
         }
-    })
-    .then(result =>{
-        console.log("test",result);
-        const event = {eventId:result.EventID,subject:result.Subject,date:result.EventDate,hour:result.EventHour,description:result.Description,roomId:roomId,userId:req.userDetails.userId};
+
+        let event = { eventId:newEvent.EventID,
+                        subject:newEvent.Subject,
+                        date:newEvent.EventDate,
+                        hour:newEvent.EventHour,
+                        description:newEvent.Description,
+                        roomId:req.body.roomId,
+                        userId:req.userDetails.userId};
         
         socketActions.addEvent(event);
-        console.log('event');
-        res.status(201).json(event);
-    }).catch(err =>{
-        console.log(err);
-        res.json({message:"something went wrong event didn't created"});
-    });
+        res.json(event);
+    }
+    catch(err){
+        res.send("Something went wrong event didn't created")
+    }
+
 }
+
 /**
  * update events details
  */
-exports.updateEvent = (req,res)=>{
-    const {event,roomId} = req.body;
+exports.updateEvent = async (req,res)=>{
     const {userId} = req.userDetails;
-    console.log(event);
-    let date = event.eventDate.split('T');
+
+    const errors = validationResult(req);
+    let newDate = req.body.date.split('T');
+    if(!errors.isEmpty()){
+        let [data] =(errors.errors)
+        return res.send(data.msg);
+    }
+
+    try{
+        const roomUser = await Roomuser.findOne({
+            where:{
+                RoomID:req.body.roomId,
+                UserID:userId
+            }
+        })
+        
+        if(!roomUser || !roomUser.IsAdmin){
+           return res.send("Unauthorized action you can't change event details");
+        }
+        
+        const event = await Event.findByPk(req.body.eventId);
+        
+        if(!event){
+            res.send("Something went wrong can't update event");
+        }
+        
+        event.Subject = req.body.subject;
+        event.EventHour = newDate[1];
+        event.EventDate = newDate[0];
+        event.Description = req.body.description;
+        event.save();
+
+        
+        let updatedEvent = {eventId:event.EventID,
+            subject:event.Subject,
+            date:event.EventDate,
+            hour:event.EventHour,
+            description:event.Description,
+            roomId:req.body.roomId
+        };
+        console.log(updatedEvent);
+            socketActions.updateEvent(updatedEvent);
+            res.json(updatedEvent)
+    }
+    catch(err){
+        res.send("Something went wrong event didn't updated try later")
+    }
     
-    Roomuser.findAll({
-        where:{
-            RoomID:roomId,
-            UserID:userId,
-            IsAdmin:1
-        }
-    })
-    .then(result => {
-        if(result.length>0){
-            return Event.findByPk(event.eventId);
-        }
-    })
-    .then(result => {
-        console.log(event);
-        result.Subject = event.eventSubject;
-        result.EventHour = date[1];
-        result.EventDate = date[0];
-        result.Description = event.eventDescription;
-        result.save();
-        let updatedEvent = {eventId:result.EventID,subject:result.Subject,date:result.EventDate,hour:result.EventHour,description:result.Description,roomId:roomId};
-        socketActions.updateEvent(updatedEvent);
-        res.status(200).json(updatedEvent);
-    }).catch(err =>{
-        console.log(err);
-        res.json({message:"something went wrong event didn't updated"});
-    });
 }
 /**
  * delete event from events table
  */
-exports.deleteEvent = (req,res) =>{
-    // const {roomId} = req.body;
-    const {eventId,roomId} = req.body;
-    const {userId} = req.userDetails;
-    console.log(roomId,eventId,userId);
-    Roomuser.findAll({
-        where:{
-            RoomID:roomId,
-            UserId:userId,
-            IsAdmin:1
+exports.deleteEvent = async (req,res) =>{
+    
+    try{
+        const roomUser = await Roomuser.findOne({
+            where:{
+                RoomID:req.body.roomId,
+                UserID:req.userDetails.userId
+            }
+        })
+        if(!roomUser || !roomUser.IsAdmin){
+            return res.send("Unauthorized action can't delete event")
         }
-    })
-    .then(result => {
-        if(result.length > 0){
-            return Event.destroy({
-                where:{
-                    EventID:eventId
-                }
-            })
-        }
-    })
-    .then(result => {
-        if(result){
-            socketActions.deleteEvent(eventId,roomId);
-            res.status(200).json({message:"Event Deleted"})
-        }
+        const event = await Event.findByPk(req.body.eventId);
         
-    })
-    .catch(err=>{
+        if(!event){
+            return res.send("Something went wrong can't delete event, event didn't found");
+        }
+        event.destroy();
+        socketActions.deleteEvent(req.body.eventId,req.body.roomId);
+        res.send("Event deleted")
+
+    }
+    catch(err){
         console.log(err);
-        res.json({message:"somthing went wrong event didn't deleted"});
-    })
+        res.send("Something went wrong can't delete event")
+    }
+
+    // const {roomId} = req.body;
+    // const {eventId,roomId} = req.body;
+    // const {userId} = req.userDetails;
+    // console.log(roomId,eventId,userId);
+    // Roomuser.findAll({
+    //     where:{
+    //         RoomID:roomId,
+    //         UserId:userId,
+    //         IsAdmin:1
+    //     }
+    // })
+    // .then(result => {
+    //     if(result.length > 0){
+    //         return Event.destroy({
+    //             where:{
+    //                 EventID:eventId
+    //             }
+    //         })
+    //     }
+    // })
+    // .then(result => {
+    //     if(result){
+    //         socketActions.deleteEvent(eventId,roomId);
+    //         res.status(200).json({message:"Event Deleted"})
+    //     }
+        
+    // })
+    // .catch(err=>{
+    //     console.log(err);
+    //     res.json({message:"somthing went wrong event didn't deleted"});
+    // })
 }
 
 /**

@@ -21,7 +21,7 @@ exports.getUsers = (req,res,next)=>{
     })
     .then(result => {
         if(result){
-            return sequelize.query(`select roomusers.IsAdmin,roomusers.UserID, users.Username from roomusers 
+            return sequelize.query(`select roomusers.IsAdmin,roomusers.UserID, users.Username,users.ImageUrl from roomusers 
             join users on roomusers.UserID = users.UserID
             where RoomID = ?`,{
                 replacements:[`${req.params.roomId}`],

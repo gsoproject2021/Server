@@ -3,60 +3,84 @@ const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 
-exports.signup = (req,res)=>{
-    console.log(req.body);
-    bcrypt.hash(req.body.password,10)
-    .then(result => {
-       return User.create({
+exports.signup = async (req,res)=>{
+    let data;
+    const errors = validationResult(req);
+    console.log(errors);
+    if(!errors.isEmpty()){
+     return res.send("can't sign up check your inputs");
+    }
+    try{
+      const hashedPassword = await bcrypt.hash(req.body.password,10);
+      if(!hashedPassword){
+        res.json("something went wrong can't sign-up try again");
+      }
+
+      const user = await User.create({
             Email:req.body.email,
             FirstName:req.body.firstName,
             LastName:req.body.lastName,
-            Password:result,
+            Password:hashedPassword,
             Birthday:req.body.birthday,
             Gender:req.body.gender,
             IsAdvertiser:req.body.isAdvertiser,
             IsAdmin:req.body.isAdmin,
             Address:req.body.address,
             Phone:req.body.phone
-        });
+      });
+      console.log(user)
+      if(!user){
+        res.json("something went wrong can't sign-up try again");
+      }
 
-    })
-    .then(result =>{
-        let token;
-        try{
-            token = jwt.sign({userDetails: result},"P@$$w0rd",{expiresIn: '24h'});
-        } catch (err){
-            res.json({message:"something went wrong"});
-        }
+      data = {
+        userId:user.UserID,
+        firstName: user.FirstName,
+        lastName: user.LastName,
+        email: user.Email,
+        birthday: user.Birthday,
+        gender: user.Gender,
+        isAdmin: user.IsAdmin,
+        isAdvertiser: user.IsAdvertiser,
+        isBlocked: user.IsBlocked,
+        image: user.ImageUrl
+      };
 
-        const data = {
-                userId:result.UserID,
-                firstName: result.FirstName,
-                lastName: result.LastName,
-                email: result.Email,
-                birthday: result.Birthday,
-                gender: result.Gender,
-                isAdmin: result.IsAdmin,
-                isAdvertiser: result.IsAdvertiser,
-                isBlocked: result.IsBlocked,
-                image:result.ImageUrl
-              }
-          
-        res.status(201).json({data:data,token:token});
-    })
-    .catch(err => {
-        if(err.name==="SequelizeUniqueConstraintError"){
-            res.status(422).json({message:"Email already in use"});
-        }else{
-            res.json({message:"something went wrong"});
-        }
-    });
+      let token;
 
+      try{
+        token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '24h'});
+      } catch (err){
+        res.send("something went wrong can't sign-up");
+      }
+
+      let expiresIn = new Date().getTime() + 24*60*60*1000;
+      let userData = {
+        data:data,
+        token:token,
+        expireIn:expiresIn
+      }
+    res.json(userData);
+
+    }
+    catch(err){
+      let [data] = err.errors
+      if(data.message === 'users.Email_UNIQUE must be unique'){
+        return res.send("Email already in use try another email");
+      }
+    }
+    
 };
 
 exports.updateUser = async (req,res) => {
-    const {firstName,lastName,email,birthday} = req.body.userData;
-    let token;
+    const errors = validationResult(req);
+    
+    if(!errors.isEmpty()){
+      let {error} = errors;
+      res.send(error.msg);
+    }
+    let {firstName,lastName,email,birthday} = req.body;
+    
     try{
       const response = await User.findByPk(req.userDetails.userId);
       if(!response){
@@ -92,7 +116,7 @@ exports.updateUser = async (req,res) => {
       if(err.name==="SequelizeUniqueConstraintError"){
         res.status(422).json({message:"Email already in use"});
       }
-      res.json({message:"somthing went wrong can't update details"});
+      res.json({message:"something went wrong can't update details"});
     }   
 };
 
@@ -147,55 +171,55 @@ exports.deleteUser = async (req, res) => {
     }
 };
 
-exports.login = (req, res, next) => {
+exports.login = async (req, res, next) => {
   
-    const { email, password } = req.body;
+    const { email,password } = req.body;
     let data;
-        User.findOne({
-            where: {
-                Email: email,
-            },
-        })
-        .then((result) => {
-            console.log(result.UserID)
+    try{
+      const user = await User.findOne({where: {Email: email}});
+      if(!user){
+        return res.send("email doesn't exist check your email");
+      }
             data = {
-                userId:result.UserID,
-                firstName: result.FirstName,
-                lastName: result.LastName,
-                email: result.Email,
-                birthday: result.Birthday,
-                gender: result.Gender,
-                isAdmin: result.IsAdmin,
-                isAdvertiser: result.IsAdvertiser,
-                isBlocked: result.IsBlocked,
-                image:result.ImageUrl
+                userId:user.UserID,
+                firstName: user.FirstName,
+                lastName: user.LastName,
+                email: user.Email,
+                birthday: user.Birthday,
+                gender: user.Gender,
+                isAdmin: user.IsAdmin,
+                isAdvertiser: user.IsAdvertiser,
+                isBlocked: user.IsBlocked,
+                image: user.ImageUrl
         };
-            return result;
-        })
-        .then((result) => {
-          
-          return bcrypt.compare(password, result.Password);
-               
-        })
-        .then((result) => {
-          
-        if (result) {
+      let isValid = await bcrypt.compare(password,user.Password);
 
-            let token;
-            try{
-                token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '24h'});
-            } catch (err){
-                res.json({message:"something went wrong"});
-            }
-            
-            res.status(200).json({data:data,token:token});
-        } else {
-            res.json("wrong password");
+      if(isValid){
+
+        let token;
+        try{
+            token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '1h'});
+        } catch (err){
+            res.send("something went wrong can't login");
         }
-        })
-        .catch((err) => {
-            console.log(err);
-        });
+        let expiresIn = new Date().getTime() + 1*60*60*1000;
+        let user = {
+          data:data,
+          token:token,
+          expireIn:expiresIn
+        }
+        console.log(user)
+        res.status(200).json(user);
+      }else
+      {
+        res.send("Wrong password try again");
+      }
+
+    }
+    catch(err){
+      console.log(err);
+    }
+    
 };
 
 exports.getUser = (req, res) => {
