@@ -119,9 +119,9 @@ exports.updateEvent = async (req,res)=>{
             description:event.Description,
             roomId:req.body.roomId
         };
-        console.log(updatedEvent);
-            socketActions.updateEvent(updatedEvent);
-            res.json(updatedEvent)
+        
+        socketActions.updateEvent(updatedEvent);
+        res.json(updatedEvent)
     }
     catch(err){
         res.send("Something went wrong event didn't updated try later")
@@ -150,7 +150,7 @@ exports.deleteEvent = async (req,res) =>{
         }
         event.destroy();
         socketActions.deleteEvent(req.body.eventId,req.body.roomId);
-        res.send("Event deleted")
+        res.send("Event deleted");
 
     }
     catch(err){

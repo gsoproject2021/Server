@@ -17,7 +17,7 @@ router.get('/roomUser/:userId',roomController.getAllUserData);
 router.get('/rooms/',roomController.fetchAllRooms);
 router.get('/roomDetails/:roomId',roomController.getRoomData)
 
-router.post('/roomUser/:roomId',roomUsersController.addUsers,roomController.getRoomData);
+router.post('/roomUser/:roomId',roomUsersController.addUsers);
 router.delete('/roomUser',roomUsersController.removeUser);
 router.put('/roomUser',roomUsersController.setAdminState);
 

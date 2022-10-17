@@ -4,7 +4,9 @@ module.exports = {
   init: httpServer => {
     io = require('socket.io')(httpServer,{
         cors: {
-            origin: ["http://localhost:3000"]
+            origin: ["http://localhost:3000"],
+            credentials: true,
+            
         }
     });
     return io;
@@ -13,11 +15,6 @@ module.exports = {
     if (!io) {
       throw new Error('Socket.io not initialized!');
     }
-
-    io.on("connection", (socket) => {
-      console.log(socket);
-    })
-
     return io;
   }
 };

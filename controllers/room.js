@@ -2,7 +2,8 @@ const Op = require('sequelize');
 const fs = require('fs');
 const path = require('path');
 const {QueryTypes} = require('sequelize');
-
+const Redis = require('ioredis');
+const redisClient = new Redis();
 
 const Log = require('../models/log');
 const Room = require('../models/room');
@@ -40,7 +41,9 @@ exports.getAllUserData = async (req,res) => {
                 users:[],
                 events:[],
                 messages:[],
-                image:room.ImageUrl
+                image:room.ImageUrl,
+                newMessage:false,
+                type: "private"
             }});
         
         
@@ -57,21 +60,33 @@ exports.getAllUserData = async (req,res) => {
                     room.users = [];
                 }
                 else{
-                    let users = roomUsers.map(user => {return {
-                        userId:user.UserID,
-                        firstName:user.FirstName,
-                        isAdmin:user.IsAdmin,
-                        image:user.ImageUrl
-                    }})
+                    let users = [];
+                    for (let user of roomUsers){
+                        let userStatus = await redisClient.hgetall(`userId-${user.UserID}`);
+                        console.log(userStatus)
+                        let roomUser = {
+                            userId: user.UserID,
+                            firstName: user.FirstName,
+                            isAdmin: user.IsAdmin,
+                            image: user.ImageUrl,
+                            isOnline: userStatus.isOnline === "true" || false
+                        }
+                        
+                        users.push(roomUser);
+                    }
                     room.users = users;
                 }
 
-                let roomEvents = await Event.findByPk(room.roomId);
+                let roomEvents = await Event.findAll({
+                    where: {
+                        RoomID:room.roomId
+                    }
+                });
                 if(!roomEvents){
                     room.events = [];
                 }
                 else{
-                    let events = roomEvent.map(event => {return{
+                    let events = roomEvents.map(event => {return{
                         eventId:event.EventID,
                         subject:event.Subject,
                         date:event.EventDate,
@@ -80,15 +95,24 @@ exports.getAllUserData = async (req,res) => {
                     }})
                     room.events = events;
                 }
+
+                const messagesCount = await redisClient.llen("private-messages");
+                for (let index = 0 ; index < messagesCount ; index++){
+                    let temp = await redisClient.lindex("private-messages",index);
+                    let message = JSON.parse(temp);
+                    if(message.roomId === room.roomId){
+                        room.messages.unshift(message);
+                    }             
+                }
+                
             }
         }
 
-
-
         let fetchPublicRoom = await PublicRoom.findAll();
         if(fetchPublicRoom){
-            publicRooms = fetchPublicRoom.map(publicRoom => {return { roomId:publicRoom.RoomID,roomName:publicRoom.RoomName}})
-        }        
+            publicRooms = fetchPublicRoom.map(publicRoom => {return { roomId:publicRoom.RoomID,roomName:publicRoom.RoomName,type:"public"}})
+        } 
+              
         res.json({message:`Welcome`,rooms,publicRooms})
 
 
@@ -328,8 +352,7 @@ exports.deleteRoom = (req,res)=>{
     })
     .then(result => {
         if(result){
-            console.log(users,roomId);
-            socketActions.deleteRoom(users,roomId);
+            socketActions.deleteRoom(roomId);
             res.send("Room deleted");
 
         }else{

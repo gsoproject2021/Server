@@ -71,7 +71,7 @@ router.patch('/blockUser/',userController.blockUser);
 router.patch('/updateUserByAdmin/',userController.updateUserByAdmin);
 router.post('/user/',fileUpload.single('image'),userController.uploadPicture);
 router.delete('/user/:userId',userController.deleteUser);
-
+router.post('/logout/',userController.userLogout);
 
 
 

@@ -2,6 +2,7 @@ const User = require("../models/user");
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
+const socketAction = require("../util/helper");
 
 exports.signup = async (req,res)=>{
     let data;
@@ -198,17 +199,17 @@ exports.login = async (req, res, next) => {
 
         let token;
         try{
-            token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '1h'});
+            token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '24h'});
         } catch (err){
             res.send("something went wrong can't login");
         }
-        let expiresIn = new Date().getTime() + 1*60*60*1000;
+        let expiresIn = new Date().getTime() + 24*60*60*1000;
         let user = {
           data:data,
           token:token,
           expireIn:expiresIn
         }
-        console.log(user)
+        
         res.status(200).json(user);
       }else
       {
@@ -413,4 +414,11 @@ exports.blockUser = async (req,res) => {
   }catch(err){
     console.log(err);
   }
+}
+
+exports.userLogout = async (req,res) => {
+
+  const userId = req.userDetails.userId;
+  socketAction.userLogout(userId,req.body.rooms);
+  res.send("Goodbye!");
 }

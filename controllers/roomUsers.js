@@ -3,7 +3,10 @@ const Roomuser = require('../models/roomuser');
 const User = require('../models/user');
 const sequelize = require('../util/dbconfig');
 const socketActions = require('../util/helper');
-
+const Room = require('../models/room');
+const Redis = require('ioredis');
+const redisClient = new Redis()
+const Event = require('../models/event');
 /**
  * return all users of some room by room ID
  */
@@ -42,49 +45,127 @@ exports.getUsers = (req,res,next)=>{
  * add user to room by adding user ID and room ID to room users table 
  */
 
-exports.addUsers = (req,res,next) => {
+exports.addUsers = async (req,res) => {
     
-    let roomId;
-    let roomCreator = {RoomID:req.body.roomId,UserID:req.userDetails.userId || req.userDetails.UserID,IsAdmin:true,isOnline:true};
-    let users = [];
-    if(req.body.created === 'created'){
-        console.log(req.body.created);
-        users.push(roomCreator);
-        roomId = req.body.roomId;
-    }
-    else{
-        users = req.body.users;
-        roomId = req.params.roomId;   
-    }
+        let users = [];
+        let room;
+    try{
+        const roomAdmin = await Roomuser.findOne({where: {
+            UserID: req.userDetails.userId,
+            RoomID: req.params.roomId
+        }})
+        console.log(roomAdmin);
+        if(roomAdmin.IsAdmin !== true && roomAdmin.IsAdmin !== 1){
+            return res.send("unauthorized action only admin can add users to group");
+        }
 
+        const response = await Roomuser.bulkCreate(req.body.users)
+        if(!response){
+            return res.send("something went wrong users didn't add");
+        }
 
-    Roomuser.bulkCreate(users)
-    .then(result => {
-        
-        return sequelize.query(`select roomusers.IsAdmin,roomusers.UserID, users.FirstName, users.LastName from roomusers 
-                join users on roomusers.UserID = users.UserID
-                where RoomID = ?`,{
-                replacements:[`${roomId}`],
-                type: QueryTypes.SELECT});
-    })
-    .then(result => {
-        console.log(result);
-        if(req.body.created === 'created'){
-            let room = req.body.room;
-            room.users = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin,isOnline:true}})
-            
-            res.json(room);
-        }else{
-            let data = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin,isOnline:false}})
-            req.body.roomDetails = {roomId:req.body.roomId,roomName:'',users:data,events:[],messages:[]};
-            next();
-            // res.json(data);
+        const tempRoom = await Room.findByPk(req.body.roomId);
+        if(!tempRoom){
+            return res.send("something went wrong");
         }
         
-    })
-    .catch(err => {
-        console.log(err);
-    })
+        room = {
+            roomId: tempRoom.RoomID,
+            roomName: tempRoom.RoomName,
+            users:[],
+            events:[],
+            messages:[],
+            newMessage:false
+
+        };
+        const roomUsers = await sequelize.query(`select roomusers.IsAdmin,roomusers.UserID,roomusers.RoomID, users.FirstName,users.ImageUrl from roomusers 
+            join users on roomusers.UserID = users.UserID
+            join rooms on roomusers.RoomID = rooms.RoomID
+            where roomusers.RoomID in (:room)`,{
+            replacements:{ room: room.roomId},
+            type: QueryTypes.SELECT
+        });
+
+        for (let user of roomUsers){
+            let userStatus = await redisClient.hgetall(`userId-${user.UserID}`);
+            let roomUser = {
+                userId: user.UserID,
+                firstName: user.FirstName,
+                isAdmin: user.IsAdmin,
+                image: user.ImageUrl,
+                isOnline: userStatus.isOnline === "true" || false
+            }
+            
+            users.push(roomUser);
+        }
+        room.users = users;
+        let roomEvents = await Event.findAll({
+            where: {
+                RoomID:room.roomId
+            }
+        });
+        if(!roomEvents){
+            room.events = [];
+        }
+        else{
+            let events = roomEvents.map(event => {return{
+                eventId:event.EventID,
+                subject:event.Subject,
+                date:event.EventDate,
+                hour:event.EventHour,
+                description:event.Description
+            }})
+            room.events = events;
+        }
+
+        const messagesCount = await redisClient.llen("private-messages");
+        for (let index = 0 ; index < messagesCount ; index++){
+            let temp = await redisClient.lindex("private-messages",index);
+            let message = JSON.parse(temp);
+            if(message.roomId === room.roomId){
+                room.messages.unshift(message);
+            }             
+        }
+        
+        socketActions.addToNewRoom(room,req.body.users);
+        socketActions.sendAddedUsers(room);
+        
+        res.json(room);
+    }
+    catch(err){
+        if(err){
+            res.send("something went wrong can't add users");
+            console.log(err);
+        }
+    }
+
+    // Roomuser.bulkCreate(users)
+    // .then(result => {
+        
+    //     return sequelize.query(`select roomusers.IsAdmin,roomusers.UserID, users.FirstName, users.LastName,users.ImageUrl from roomusers 
+    //             join users on roomusers.UserID = users.UserID
+    //             where RoomID = ?`,{
+    //             replacements:[`${roomId}`],
+    //             type: QueryTypes.SELECT});
+    // })
+    // .then(result => {
+    //     console.log(result);
+    //     if(req.body.created === 'created'){
+    //         let room = req.body.room;
+    //         room.users = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin,isOnline:true}})
+            
+    //         res.json(room);
+    //     }else{
+    //         let data = result.map(user => {return {userId:user.UserID, firstName:user.FirstName,isAdmin:user.IsAdmin,isOnline:false}})
+    //         req.body.roomDetails = {roomId:req.body.roomId,roomName:'',users:data,events:[],messages:[]};
+    //         next();
+    //         // res.json(data);
+    //     }
+        
+    // })
+    // .catch(err => {
+    //     console.log(err);
+    // })
     
 }
 
@@ -155,43 +236,74 @@ exports.addUsers = (req,res,next) => {
  * remove user from room by removing user from room users table
  */
 
-exports.removeUser = (req,res)=>{
+exports.removeUser = async (req,res)=>{
 
     const roomId = req.body.roomId;
     const userToDelete = req.body.userId
     const userThatDelete = req.userDetails.userId;
-    console.log(roomId,req.body.userId);
-    Roomuser.findAll({
-        where: {
-            UserID: userThatDelete,
-            RoomID: roomId,
-            IsAdmin:1
+    console.log(req.body);
+    try{
+        const roomAdmin = await Roomuser.findOne({
+            where:{
+                RoomID: roomId,
+                UserID: userThatDelete
+            }
+        })
+        if(!roomAdmin){
+            return res.send("something went wrong you can't remove user from room");
         }
-    })
-    .then(result => {
-        if(result.length > 0 || req.userDetails.isAdmin){
-            console.log("ok")
-            return Roomuser.destroy({
+
+        if(roomAdmin.IsAdmin === true || roomAdmin.IsAdmin === 1){
+            const toDelete = await Roomuser.findOne({
                 where:{
-                    RoomID:roomId,
-                    UserId:userToDelete
+                    UserID: userToDelete,
+                    RoomID:roomId
                 }
-            })
+            });
+            if(!toDelete){
+                return res.send("something went wrong user didn't removed");
+            }
+            toDelete.destroy();
         }
-    })
-    .then(result => {
-        console.log(result);
-        if(result){
-            socketActions.removeUser(userToDelete,roomId);
-            res.json({message:"User deleted from room"});
-        }else{
-            res.json({message:"something went wrong user didn't removed"});
-        }
-    })
-    .catch(err => {
+        socketActions.removeUser(userToDelete,roomId);
+        res.send("User removed")
+
+    }
+    catch(err){
         console.log(err);
-        res.json({message:"something went wrong users didn't deleted"});
-    });
+    }
+
+    // Roomuser.findAll({
+    //     where: {
+    //         UserID: userThatDelete,
+    //         RoomID: roomId,
+    //         IsAdmin:1
+    //     }
+    // })
+    // .then(result => {
+    //     if(result.length > 0 || req.userDetails.isAdmin){
+    //         console.log("ok")
+    //         return Roomuser.destroy({
+    //             where:{
+    //                 RoomID:roomId,
+    //                 UserId:userToDelete
+    //             }
+    //         })
+    //     }
+    // })
+    // .then(result => {
+    //     console.log(result);
+    //     if(result){
+    //         socketActions.removeUser(userToDelete,roomId);
+    //         res.json({message:"User deleted from room"});
+    //     }else{
+    //         res.json({message:"something went wrong user didn't removed"});
+    //     }
+    // })
+    // .catch(err => {
+    //     console.log(err);
+    //     res.json({message:"something went wrong users didn't deleted"});
+    // });
 
 }
 
