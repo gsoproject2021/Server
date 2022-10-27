@@ -1,4 +1,4 @@
-const {Op,QueryTypes} = require('sequelize');
+const {QueryTypes} = require('sequelize');
 const Roomuser = require('../models/roomuser');
 const User = require('../models/user');
 const sequelize = require('../util/dbconfig');
@@ -170,68 +170,6 @@ exports.addUsers = async (req,res) => {
 }
 
 
-// exports.addUsers = (req,res,next) => {
-    
-//     const roomId = req.params.roomId || req.body.roomId;
-//     const userId = req.userDetails.userId;
-//     const users = req.body.users;
-//     const existedRoom = req.body.existedRoom;
-//     const room = req.body.room;
-//     console.log(room);
-//     Roomuser.findAll({
-//         where:{
-//             RoomID:roomId ,
-//             UserID:userId
-//         }
-//     })
-//     .then(result => {
-        
-//         if( !result.length ){
-            
-//             return Roomuser.create({RoomID:roomId,UserID:userId,IsAdmin:true});
-//         }
-//         else{
-//             if(result.IsAdmin || req.userDetails.isAdmin){
-                
-//             return Roomuser.bulkCreate(users);
-//             }
-//         }
-        
-//     })
-//     .then(result => {
-//         console.log(result);
-//         if(!result){
-//             res.json({message:"something went wrong users didn't added to room"});
-//         }
-//         return sequelize.query(`select roomusers.IsAdmin,roomusers.UserID, users.FirstName, users.LastName from roomusers 
-//         join users on roomusers.UserID = users.UserID
-//         where RoomID = ?`,{
-//         replacements:[`${roomId}`],
-//         type: QueryTypes.SELECT});
-//     })
-//     .then(result => {
-//         req.body.roomUsers = result;
-//         if(req.body.roomCreated === 'created'){
-//             next();
-//         }
-//         else{
-//             // getIO.getIO.broadcast(userId, {
-//             //     action: 'addedToRoom',
-//             //     roomDetails: {roomId: roomId, roomName: existedRoom}
-                
-//             // });
-//             let addedUsers = result.map( user => {return {userId:userId,firstName:user.FirstName,isAdmin:user.IsAdmin}})
-//             res.status(201).json(addedUsers);
-//         }
-        
-        
-//     })
-//     .catch(err=>{
-//         console.log(err);
-//         res.json({message:"something went wrong users didn't added to room"});
-//     });
-// };
-
 /**
  * remove user from room by removing user from room users table
  */
@@ -307,32 +245,7 @@ exports.removeUser = async (req,res)=>{
 
 }
 
-exports.setAdminState = (req,res)=>{
-
-    const roomId = req.body.roomId;
-    const userToAdmin = req.body.userId;
-    const userSetter = req.userDetails.userId;
-    const adminState = req.body.isAdmin;
-    console.log(roomId,userToAdmin,adminState);
-    Roomuser.findAll({
-        where:{
-            UserID:userSetter,
-            RoomID:roomId 
-        }
-    })
-    .then(result => {
-        if(result.IsAdmin || req.userDetails.isAdmin){
-            result.IsAdmin = adminState;
-            result.save();
-        }
-        
-        res.status(201).json({message:"admin added"});
-    })
-    .catch(err=>{
-        res.json({message:"something went wrong the action failed"});
-    })
-}
-
+//send all data of some room for admin
 exports.getRoomDetails = (req,res) =>{
 
     const roomId = req.params.roomId;
@@ -363,39 +276,21 @@ exports.getRoomDetails = (req,res) =>{
     })
     .catch(err=>{
         console.log(err);
-        res.json({message:"something went wrong can't fetch details"});
+        res.send("something went wrong can't fetch details");
     });
 };
 
+// send all data of some room for admin
 exports.getAllUsers = (req,res) => {
     User.findAll({
         where:{ IsAdmin:false,IsBlocked:false}
     })
     .then(result => {
-        const data = result.map(user => {return {userId:user.UserID,firstName:user.FirstName,isAdmin:result.IsAdmin}})
-        res.status(200).json(data);
+        const data = result.map(user => {return {userId:user.UserID,firstName:user.FirstName,isAdmin:user.IsAdmin,isAdvertiser:user.IsAdvertiser,image:user.ImageUrl}})
+        res.json(data);
     })
     .catch(err => {
         console.log(err);
     })
 }
 
-exports.getAllData = (req,res) => {
-
-    const userId = req.params.userId;
-    sequelize.query(`select roomusers.IsAdmin,roomusers.UserID,roomusers.RoomID,users.FirstName,rooms.RoomName from roomusers
-            join users on roomusers.UserID = users.UserID
-            join rooms on roomusers.RoomID = rooms.RoomID
-            where roomusers.RoomID in (select roomusers.RoomID from roomusers
-                    where roomusers.UserID = ?)`,{
-                        replacements:[`${req.params.userId }`],
-                        type: QueryTypes.SELECT
-                    })
-        .then(result => {
-            res.send(result);
-        })
-        .catch(err => {
-            console.log(err)
-        })
-
-}

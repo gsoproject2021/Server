@@ -1,5 +1,8 @@
 let io;
 
+/**
+ * global socket.io configurations for using in all app
+ */
 module.exports = {
   init: httpServer => {
     io = require('socket.io')(httpServer,{

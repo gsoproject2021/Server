@@ -6,22 +6,6 @@ const socketActions = require('../util/helper');
 
 
 
-exports.getEvents = (req,res,next)=>{
-    
-    Event.findAll({where:{RoomID:req.params.roomId}})
-    .then(results=>{
-        
-        let events = results.map(event=>{
-            return{eventId:event.EventID,subject:event.Subject,date:event.EventDate+' '+event.EventHour,description:event.Description}
-        })
-        req.body.events = events;
-        next();
-    })
-    .catch(err=>{
-        console.log(err); 
-    })
-}
-
 /**
  * add event in events table
  */
@@ -191,18 +175,3 @@ exports.deleteEvent = async (req,res) =>{
     // })
 }
 
-/**
- * delete all events of some room 
- */
-// exports.deleteAllEvents = (req,res,next)=>{
-//     Event.destroy({
-//         where:{RoomID:req.body.roomId}
-//     })
-//     .then(result=>{
-//         console.log(result);
-//         next();
-//     })
-//     .catch(err=>{
-//         console.log(err);
-//     })
-// }

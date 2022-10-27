@@ -5,10 +5,17 @@ const { checkAuth } = require('../middleware/check-auth');
 const fileUpload = require('../middleware/file-upload');
 const {check} = require('express-validator')
 
+/**
+ * user routes
+ */
+
 router.get('/user/:userId',userController.getUser);
 router.get('/users',userController.fetchAllUsers);
 
-router.get('')
+router.post('/forgotPassword/',userController.forgotPassword);
+router.post('/resetPassword/:token',userController.resetPassword)
+
+router.post('/contactUs',userController.contactUs);
 router.post('/login/',[
             check('email').isEmail().withMessage("The login must be email"),
             ],userController.login);

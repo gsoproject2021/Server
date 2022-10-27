@@ -3,7 +3,21 @@ const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const socketAction = require("../util/helper");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+const sendgridTransport = require("nodemailer-sendgrid-transport");
+const { Op } = require("sequelize");
+require("dotenv").config();
 
+//transpoter for sending email
+const transporter = nodemailer.createTransport(sendgridTransport({
+  auth:{
+    api_key: process.env.EMAIL_API_KEY
+  }
+}))
+
+
+// signup function 
 exports.signup = async (req,res)=>{
     let data;
     const errors = validationResult(req);
@@ -50,7 +64,7 @@ exports.signup = async (req,res)=>{
       let token;
 
       try{
-        token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '24h'});
+        token = jwt.sign({userDetails: data},`${process.env.JWD_PASSWORD}`,{expiresIn: '24h'});
       } catch (err){
         res.send("something went wrong can't sign-up");
       }
@@ -73,6 +87,7 @@ exports.signup = async (req,res)=>{
     
 };
 
+//update user details
 exports.updateUser = async (req,res) => {
     const errors = validationResult(req);
     
@@ -121,6 +136,7 @@ exports.updateUser = async (req,res) => {
     }   
 };
 
+//upload user profile picture
 exports.uploadPicture = (req,res) => {
 
   User.findByPk(req.userDetails.userId)
@@ -149,6 +165,7 @@ exports.uploadPicture = (req,res) => {
 
 };
 
+//delete user
 exports.deleteUser = async (req, res) => {
     console.log(req.userDetails.userId,req.params.userId);
     if(req.userDetails.isAdmin || req.params.userId === req.userDetails.userId){
@@ -172,6 +189,7 @@ exports.deleteUser = async (req, res) => {
     }
 };
 
+//login function
 exports.login = async (req, res, next) => {
   
     const { email,password } = req.body;
@@ -193,13 +211,16 @@ exports.login = async (req, res, next) => {
                 isBlocked: user.IsBlocked,
                 image: user.ImageUrl
         };
+      if(user.IsBlocked){
+        return res.send("your account blocked ");
+      }
       let isValid = await bcrypt.compare(password,user.Password);
 
       if(isValid){
 
         let token;
         try{
-            token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '24h'});
+            token = jwt.sign({userDetails: data},`${process.env.JWD_PASSWORD}`,{expiresIn: '24h'});
         } catch (err){
             res.send("something went wrong can't login");
         }
@@ -210,7 +231,7 @@ exports.login = async (req, res, next) => {
           expireIn:expiresIn
         }
         
-        res.status(200).json(user);
+        res.json(user);
       }else
       {
         res.send("Wrong password try again");
@@ -223,6 +244,7 @@ exports.login = async (req, res, next) => {
     
 };
 
+//send user details for admin
 exports.getUser = (req, res) => {
 
   console.log(req.params.userId);
@@ -248,6 +270,7 @@ exports.getUser = (req, res) => {
     });
 };
 
+// send all user for admin
 exports.fetchAllUsers = (req, res) => {
   User.findAll({})
     .then((result) => {
@@ -264,10 +287,7 @@ exports.fetchAllUsers = (req, res) => {
     });
 };
 
-exports.addPicture = (req,res) => {
-
-};
-
+//update user details by admin
 exports.updateUserByAdmin = async (req,res) => {
   
   if(req.userDetails.isAdmin){
@@ -312,6 +332,7 @@ exports.updateUserByAdmin = async (req,res) => {
   }
 };
 
+//change user password by admin
 exports.changePasswordByAdmin = async (req,res) => {
   const errors = validationResult(req);
   console.log(req.body)
@@ -348,6 +369,7 @@ exports.changePasswordByAdmin = async (req,res) => {
   }
 }
 
+//change password by user
 exports.changePassword = async (req,res) => {
   const errors = validationResult(req);
   if(!errors.isEmpty()){
@@ -382,6 +404,7 @@ exports.changePassword = async (req,res) => {
 
 }
 
+// block user by admin
 exports.blockUser = async (req,res) => {
 
   if(!req.userDetails.isAdmin){
@@ -416,9 +439,108 @@ exports.blockUser = async (req,res) => {
   }
 }
 
+//send message when user logout
 exports.userLogout = async (req,res) => {
 
   const userId = req.userDetails.userId;
   socketAction.userLogout(userId,req.body.rooms);
   res.send("Goodbye!");
+}
+
+//send mail contact us to admin
+exports.contactUs = async (req,res) => {
+  console.log(req.body)
+
+  try{
+    const response = await transporter.sendMail({
+      to: "gso.project2021@gmail.com",
+      from: "gso.project2021@gmail.com",
+      subject: "email from"+" "+req.body.email+" "+req.body.subject,
+      html: req.body.content
+    })
+
+    if(!response){
+      return res.send("something went wrong try again later");
+    }
+
+    res.send("Thank you for contact with GSO we will contact you back as soon as possible!");
+
+  }
+  catch(err){
+    console.log(err);
+  }
+}
+
+// send forgot password for user
+exports.forgotPassword = async (req,res) => {
+  console.log(req.body)
+  try {
+    const buffer = await crypto.randomBytes(32);
+    
+    if(!buffer){
+      return res.send("something went wrong");
+    }
+    const token = buffer.toString('hex');
+
+    const user = await User.findOne({
+        where:{
+          Email: req.body.email
+        }
+      })
+    if(!user){
+      return res.send("something went wrong check your email")
+    }
+    user.ResetPasswordToken = token;
+    user.ResetPasswordExpiration = Date.now() + 60*1000*10;
+    user.save();
+
+    const response = await transporter.sendMail({
+      to: req.body.email,
+      from: "gso.project2021@gmail.com",
+      subject: "GSO reset password",
+      html: `<p>You requested to reset password</p>
+             <p>click this <a href="http://localhost:3000/reset-password/${token}">link</a> to set new password</p>`
+    })
+
+    if(!response){
+      return res.send("something went wrong try again later");
+    }
+
+    res.send("Check your email inbox of spam box");
+    
+  }
+  catch(err){
+    console.log(err);
+  }
+}
+
+// reset password when user forgot password
+exports.resetPassword = async (req,res) => {
+  console.log(req.params.token)
+  try{
+    const user = await User.findOne({
+      where:{
+        ResetPasswordToken: req.params.token,
+        ResetPasswordExpiration:{
+          [Op.gt]: Date.now()
+        }
+      }
+    })
+    console.log(user)
+    if(!user){
+      return res.send("something went wrong can't reset password");
+    }
+    
+    let hashedPassword = await bcrypt.hash(req.body.password,10);
+    user.Password = hashedPassword;
+    user.ResetPasswordToken = "";
+    user.ResetPasswordExpiration = 0;
+    user.save();
+
+    res.send("your password changed");
+
+  }
+  catch(err){
+    console.log(err);
+  }
 }

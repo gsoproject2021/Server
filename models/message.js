@@ -29,9 +29,10 @@ const Message = sequelize.define('message',{
         allowNull: false,
         
       },
-      DateTime: {
-        type: Sequelize.STRING(45),
-        allowNull: false
+      DateTimeMessage: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: 0
       },
       Sender: {
         type: Sequelize.STRING(45),

@@ -1,17 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const roomController = require('../controllers/room');
-
 const roomUsersController = require('../controllers/roomUsers');
-const eventsController = require('../controllers/event');
 const { checkAuth } = require('../middleware/check-auth');
 const fileUpload = require('../middleware/rooms-images');
 const publicRoomController = require('../controllers/publicroom');
 const {check} = require('express-validator');
 
+/**
+ * room routes
+ */
+
 router.use(checkAuth);
 
-//router.get('/roomDetails/:roomId',eventsController.getEvents,roomUsersController.getRoomDetails);
 router.get('/roomUsers',roomUsersController.getAllUsers);
 router.get('/roomUser/:userId',roomController.getAllUserData);
 router.get('/rooms/',roomController.fetchAllRooms);
@@ -19,7 +20,7 @@ router.get('/roomDetails/:roomId',roomController.getRoomData)
 
 router.post('/roomUser/:roomId',roomUsersController.addUsers);
 router.delete('/roomUser',roomUsersController.removeUser);
-router.put('/roomUser',roomUsersController.setAdminState);
+
 
 router.post('/roomImage',fileUpload.single('image'),roomController.uploadImage)
 router.post('/room',[
