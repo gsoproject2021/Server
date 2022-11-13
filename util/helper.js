@@ -15,6 +15,15 @@ exports.addToNewRoom = (room,users) => {
     }
 }
 
+/**
+ * 
+ * @param {*} room 
+ * emit to user to join to new created room
+ */
+
+exports.newRoomCreated = (userId,room) => {
+    io.getIO().emit(`roomCreatedByUser-${userId}`,room);
+}
 /*
  * update existed users about new users added
  */
@@ -197,4 +206,13 @@ exports.cleanCache = () => {
     },CLEANING_TIME)
 
 
+}
+
+exports.joinToNewRoom = (socket,data) => {
+
+    socket.join(data.roomId);
+}
+
+exports.roomDeleted = (socket,data) => {
+    socket.leave(data);
 }

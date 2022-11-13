@@ -13,8 +13,6 @@ const PublicRoom = sequelize.define('publicroom',{
         type: Sequelize.STRING(30),
         allowNull: false
       },
- 
-      
 });
 
 module.exports = PublicRoom;

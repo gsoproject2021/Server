@@ -89,6 +89,14 @@ sequelize
             socketAction.changePublicRoom(socket,data);
           })
 
+          socket.on('joinToNewRoom', data => {
+            socketAction.joinToNewRoom(socket,data);
+          })
+
+          socket.on('roomDeleted', data => {
+            socketAction.roomDeleted(socket,data)
+          })
+
           socket.on("disconnecting",data => {
             
             socketAction.userDisconnected(socket); 

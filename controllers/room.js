@@ -11,9 +11,6 @@ const PublicRoom = require('../models/publicroom');
 const { validationResult } = require('express-validator');
 
 
-
-
-
 /**
  * fetch all public room and all rooms of user and room's user and events
  */
@@ -118,8 +115,6 @@ exports.getAllUserData = async (req,res) => {
     }
 
 }
-
-
 /**
  * fetch all rooms of some user
  */
@@ -175,7 +170,8 @@ exports.createRoom = async (req,res,next)=>{
             roomName:newRoom.RoomName,
             users:[],
             events:[],
-            messages:[]
+            messages:[],
+            type:"private"
         };
         
         const userRoom = await Roomuser.create({
@@ -198,6 +194,7 @@ exports.createRoom = async (req,res,next)=>{
         }
         
         room.users.push(user);
+        socketActions.newRoomCreated(user.userId,room);
         res.json(room);
 
     }
@@ -256,11 +253,11 @@ exports.updateRoom = (req,res)=>{
         room.save();
         let updatedRoom={roomId:room.RoomID,roomName:room.RoomName};
         socketActions.updateRoomName(updatedRoom);
-        res.status(201).json(updatedRoom);
+        res.json(updatedRoom);
     })
     .catch(err=>{
         console.log(err);
-        res.json({message:"something went wrong room didn't updated"});
+        res.send("something went wrong room didn't updated");
     });
 
 }

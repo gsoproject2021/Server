@@ -13,10 +13,12 @@ exports.checkAuth = (req,res,next) => {
             throw new Error("Authentication failed");
         }
         const decodedToken = jwt.verify(token,`${process.env.JWD_PASSWORD}`);
+        
+        
         req.userDetails = decodedToken.userDetails;
         next();
     } catch (err){
-        console.log(err);
+        return next(err)
     }
     
 }

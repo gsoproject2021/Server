@@ -119,6 +119,7 @@ exports.updateUser = async (req,res) => {
         image: response.ImageUrl,
         isAdvertiser: response.IsAdvertiser,
         isBlocked: response.IsBlocked,
+        
       }
       try{
         token = jwt.sign({userDetails: data},"P@$$w0rd",{expiresIn: '24h'})
@@ -126,13 +127,14 @@ exports.updateUser = async (req,res) => {
       catch(err){
         res.send({message:"something went wrong cant update user"})
       }
-      res.json({data,token});
+      let expireIn = new Date().getTime() + 24*60*60*1000;
+      res.json({data,token,expireIn});
     }
     catch(err){
       if(err.name==="SequelizeUniqueConstraintError"){
-        res.status(422).json({message:"Email already in use"});
+        res.send("Email already in use");
       }
-      res.json({message:"something went wrong can't update details"});
+      res.send("something went wrong can't update details");
     }   
 };
 
@@ -156,7 +158,7 @@ exports.uploadPicture = (req,res) => {
       isBlocked: user.IsBlocked,
       image:req.file.path ? req.file.path : ''
     };
-    
+    console.log(data);
     res.json(data);
   })
   .catch(err => {
@@ -190,8 +192,8 @@ exports.deleteUser = async (req, res) => {
 };
 
 //login function
-exports.login = async (req, res, next) => {
-  
+exports.login = async (req, res) => {
+    
     const { email,password } = req.body;
     let data;
     try{
